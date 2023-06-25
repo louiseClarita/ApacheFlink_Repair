@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Filtered Data</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/css/bootstrap.min.css">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+        }
+
+        .filter-container {
+            margin-bottom: 10px;
+        }
+
+        .filter-container input[type="text"] {
+            padding: 5px;
+            width: 200px;
+        }
+
+        .filter-container input[type="submit"] {
+            padding: 5px 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Filtered Data</h1>
+        <form action="/GoToDashboardRate">
+            <button class="btn btn-primary" type="submit">Go To Rate Dashboard</button>
+        </form>
+        <form action="/GoToDashboardBrand">
+            <button class="btn btn-primary" type="submit">Go To Brand Dashboard</button>
+        </form>
+
+        <div class="filter-container">
+            <input type="text" id="tech_email" placeholder="Enter Tech Email">
+            <input class="btn btn-primary" type="submit" value="Filter" onclick="applyFilter()">
+        </div>
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Created Date</th>
+                    <th>Repair Date</th>
+                    <th>Is Delivery</th>
+                    <th>Price</th>
+                    <th>Tech ID</th>
+                    <th>Client ID</th>
+                    <th>Brand</th>
+                    <th>Problem</th>
+                    <th>Component</th>
+                    <th>Feedback Rate</th>
+                    <th>Feedback Text</th>
+                </tr>
+            </thead>
+
+            <tbody id="data-table-body">
+                {% for row in table%}
+                <tr>
+                    <td>{{ row['created_date'] }}</td>
+                    <td>{{ row['repair_date'] }}</td>
+                    <td>{{ row['isdelivery'] }}</td>
+                    <td>{{ row['price'] }}</td>
+                    <td>{{ row['tech_id'] }}</td>
+                    <td>{{ row['client_id'] }}</td>
+                    <td>{{ row['brand'] }}</td>
+                    <td>{{ row['problem'] }}</td>
+                    <td>{{ row['component'] }}</td>
+                    <td>{{ row['feedback_rate'] }}</td>
+                    <td>{{ row['feedback_text'] }}</td>
+                </tr>
+                {% end %}
+            </tbody>
+        </table>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/js/bootstrap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mustache.js/4.2.0/mustache.min.js"></script>
+
+    <script>
+        function applyFilter() {
+            var filterValue = document.getElementById('tech_email').value;
+            console.log(filterValue);
+            var $j = jQuery.noConflict();
+            // Make an AJAX POST request to the Flask server
+            $j.ajax({
+                url: '/byuser',
+                method: 'POST',
+                data: {
+                    tech_email: filterValue
+                },
+                success: function(response) {
+                    var tableBody = document.getElementById('data-table-body');
+                    tableBody.innerHTML = '';  // Clear existing table content
+
+                    // Access the 'data' array directly
+                    var filteredData = response.data;
+
+                    // Iterate over the filtered data and create table rows
+                    filteredData.forEach(function(row) {
+                        var newRow = document.createElement('tr');
+
+                        // Create table cells and populate with data
+                        Object.values(row).forEach(function(value) {
+                            var newCell = document.createElement('td');
+                            newCell.textContent = value;
+                            newRow.appendChild(newCell);
+                        });
+
+                        tableBody.appendChild(newRow);
+                    });
+                },
+                error: function(error) {
+                    console.error(error);
+                }
+            });
+        }
+    </script>
+
+</body>
+</html>
