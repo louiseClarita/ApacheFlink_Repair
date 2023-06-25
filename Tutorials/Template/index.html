@@ -7,7 +7,9 @@
         body {
             font-family: Arial, sans-serif;
         }
-
+.expand-cell {
+  white-space: nowrap;
+}
         .filter-container {
             margin-bottom: 10px;
         }
@@ -66,7 +68,7 @@
                     <td>{{ row['problem'] }}</td>
                     <td>{{ row['component'] }}</td>
                     <td>{{ row['feedback_rate'] }}</td>
-                    <td>{{ row['feedback_text'] }}</td>
+                    <td class="expand-cell">{{ row['feedback_text'] }}</td>
                 </tr>
                 {% end %}
             </tbody>

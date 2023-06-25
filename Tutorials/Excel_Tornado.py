@@ -80,34 +80,31 @@ class MainHandler(tornado.web.RequestHandler):
 
 
         tbl_env.create_temporary_table('financial_trxs', tble_desc)
-
         tbl = tbl_env.from_path('financial_trxs')
+
+        if output_path is not None:
+            # Get the schema of the query result
+            result_schema = tbl.get_schema()
+
+            # Create the sink table with the same schema as the query result
+            tbl_env.create_temporary_table('sink',
+                                           TableDescriptor.for_connector('print')
+                                           .schema(schema)
+                                           .build())
+        else:
+            print("Printing result to stdout. Use --output to specify output path.")
+            # Get the schema of the query result
+            result_schema = tbl.get_schema()
+
+            # Create the sink table with the same schema as the query result
+            tbl_env.create_temporary_table('sink',
+                                           TableDescriptor.for_connector('print')
+                                           .schema(result_schema)
+                                           .build())
+        tbl.execute_insert('sink').wait()
 
         # Convert the table to a pandas DataFrame
         df = tbl.to_pandas()
-        if output_path is not None:
-            tbl_env.create_temporary_table(
-                'sink',
-                TableDescriptor.for_connector('filesystem')
-                .schema(Schema.new_builder()
-                        .column('repair_id', DataTypes.STRING())
-                        .column('count', DataTypes.BIGINT())
-                        .build())
-                .option('path', output_path)
-                .format(FormatDescriptor.for_format('canal-json')
-                        .build())
-                .build())
-        else:
-            print("Printing result to stdout. Use --output to specify output path.")
-            tbl_env.create_temporary_table(
-                    'sink',
-                    TableDescriptor.for_connector('print')
-                    .schema(Schema.new_builder()
-                            .column('repair_date', DataTypes.STRING())
-                            .column('count', DataTypes.BIGINT())
-                            .build())
-                    .build())
-
         # Render the DataFrame in an HTML table
         table_html = df.to_html()
         template_dir = os.path.join(os.path.dirname(__file__), 'template')
@@ -173,7 +170,7 @@ class DynamicHandler(tornado.web.RequestHandler):
         # compute word count
         count = tbl.flat_map(split).alias('repair_id') \
             .group_by(col('repair_id')) \
-            .select(col('repair_id'), lit(1).count) \
+            .select(col('repair_id'), lit(1).count).execute_insert('sink').wait()
 
 
         resultSchema = count.to_pandas()
@@ -185,6 +182,7 @@ class DynamicHandler(tornado.web.RequestHandler):
 class DashboardHandlerByBrand(tornado.web.RequestHandler):
     def get(self):
      try:
+        output_path = ''
         env_settings = EnvironmentSettings.new_instance() \
             .in_batch_mode() \
             .build()
@@ -222,7 +220,7 @@ class DashboardHandlerByBrand(tornado.web.RequestHandler):
 
         result_table = tbl.flat_map(split).alias('brand','price')\
             .group_by(col("brand"))\
-            .select(col('brand'), (col('price')).sum.alias('total'))\
+            .select(col('brand'), (col('price')).sum.alias('total'))
 
 
         # Convert the result table to Pandas DataFrame
@@ -240,7 +238,8 @@ class DashboardHandlerByBrand(tornado.web.RequestHandler):
         x_values = list(feedback_rate_percentages.keys())
         y_values = list(feedback_rate_percentages.values())
         fig = go.Figure(data=[go.Bar(x=x_values, y=y_values)])
-        fig.update_layout(title='Feedback Rate Dashboard', xaxis_title='Feedback Rate', yaxis_title='Percentage')
+        fig.update_layout(title='Revenue by Brand Dashboard', xaxis_title='Brand',
+                          yaxis_title='Revenue')
 
         # Convert the figure to JSON
         fig_json = fig.to_json()
@@ -321,9 +320,9 @@ class DashboardHandlerByRate(tornado.web.RequestHandler):
                     x_values = list(feedback_rate_percentages.keys())
                     y_values = list(feedback_rate_percentages.values())
                     fig = go.Figure(data=[go.Bar(x=x_values, y=y_values)])
-                    fig.update_layout(title='Revenue by Brand Dashboard', xaxis_title='Brand',
-                                      yaxis_title='Revenue')
 
+                    fig.update_layout(title='Feedback Rate Dashboard', xaxis_title='Feedback Rate',
+                                      yaxis_title='Percentage')
                     # Convert the figure to JSON
                     fig_json = fig.to_json()
                     print(fig_json)
